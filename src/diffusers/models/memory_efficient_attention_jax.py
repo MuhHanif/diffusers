@@ -17,7 +17,8 @@ def _query_chunk_attention(query, key, value, precision, key_chunk_size: int = 4
         max_score = jax.lax.stop_gradient(max_score)
         exp_weights = jnp.exp(attn_weights - max_score)
 
-        exp_values = jnp.einsum('...vhf,...qhv->...qhf', value, exp_weights, precision=precision)
+        #exp_values = jnp.einsum('...vhf,...qhv->...qhf', value, exp_weights, precision=precision)
+        exp_values = jnp.einsum('...qhk,...khd->...qhd', exp_weights, value, precision=precision)
         max_score = jnp.einsum('...qhk->...qh', max_score)
 
         return (exp_values, exp_weights.sum(axis=-1), max_score)
