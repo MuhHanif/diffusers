@@ -42,6 +42,23 @@ logger = logging.getLogger(__name__)
 def parse_args():
     parser = argparse.ArgumentParser(description="Simple example of a training script.")
     parser.add_argument(
+        "--convert_param_dtype",
+        action="store_true",
+        help="convert model parameters binary precision",
+    )
+    parser.add_argument(
+        "--computational_precision",
+        type=str,
+        default="default",
+        choices=["default" ,"bfloat16", "tensorfloat32", "float32"],
+        help="tpu computational precision",
+    )
+    parser.add_argument(
+        "--use_memory_efficient",
+        action="store_true",
+        help="enable memory efficient attention",
+    )
+    parser.add_argument(
         "--pretrained_model_name_or_path",
         type=str,
         default=None,
@@ -234,6 +251,10 @@ def get_params_to_save(params):
     return jax.device_get(jax.tree_util.tree_map(lambda x: x[0], params))
 
 
+def convert_dtype(xs, dtype):
+    return jax.tree_util.tree_map(lambda x: jax.device_put(x, device=jax.devices("cpu")[0]).astype(jnp.bfloat16), xs)
+
+
 def main():
     args = parse_args()
 
@@ -393,9 +414,20 @@ def main():
     vae, vae_params = FlaxAutoencoderKL.from_pretrained(
         args.pretrained_model_name_or_path, subfolder="vae", dtype=weight_dtype
     )
-    unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, use_memory_efficient=True
-    )
+
+    # create if statement so it will not error out if i try older version 
+    if args.use_memory_efficient:
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
+            args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, use_memory_efficient=True
+        )
+    else:
+        unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
+            args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, 
+        )
+
+    if args.convert_param_dtype:
+        unet_params = convert_dtype(unet_params, weight_dtype)
+        vae_params = convert_dtype(vae_params, weight_dtype)
 
     # Optimization
     if args.scale_lr:
@@ -576,4 +608,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+
+    if args.computational_precision == "default":
+        main()
+    else:
+        with jax.default_matmul_precision(args.computational_precision):
+            main()
