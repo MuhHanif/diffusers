@@ -394,7 +394,7 @@ def main():
         args.pretrained_model_name_or_path, subfolder="vae", dtype=weight_dtype
     )
     unet, unet_params = FlaxUNet2DConditionModel.from_pretrained(
-        args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype
+        args.pretrained_model_name_or_path, subfolder="unet", dtype=weight_dtype, use_memory_efficient=True
     )
 
     # Optimization
