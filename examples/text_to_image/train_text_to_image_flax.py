@@ -11,6 +11,12 @@ import torch
 import torch.utils.checkpoint
 
 import jax
+
+
+from jax.experimental.compilation_cache import compilation_cache as cc
+if jax.devices()[0].platform == "tpu":
+    cc.initialize_cache("/.jax_cache")
+
 import jax.numpy as jnp
 import optax
 import transformers
