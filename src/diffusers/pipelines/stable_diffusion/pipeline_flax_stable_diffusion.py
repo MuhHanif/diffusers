@@ -190,7 +190,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         guidance_scale: float,
         latents: Optional[jnp.array] = None,
         neg_prompt_ids: Optional[jnp.array] = None,
-        clip_skip: int = 0
+        clip_skip: int = 0,
     ):
         if height % 8 != 0 or width % 8 != 0:
             raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
@@ -296,7 +296,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         neg_prompt_ids: jnp.array = None,
         return_dict: bool = True,
         jit: bool = False,
-        clip_skip: int = 0
+        clip_skip: int = 0,
 
     ):
         r"""
@@ -362,7 +362,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
-                clip_skip
+                clip_skip,
             )
         else:
             images = self._generate(
@@ -375,7 +375,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
-                clip_skip
+                clip_skip,
             )
 
         if self.safety_checker is not None:
@@ -422,7 +422,7 @@ def _p_generate(
     guidance_scale,
     latents,
     neg_prompt_ids,
-    clip_skip
+    clip_skip,
 ):
     return pipe._generate(
         prompt_ids,
@@ -434,7 +434,7 @@ def _p_generate(
         guidance_scale,
         latents,
         neg_prompt_ids,
-        clip_skip
+        clip_skip,
     )
 
 
