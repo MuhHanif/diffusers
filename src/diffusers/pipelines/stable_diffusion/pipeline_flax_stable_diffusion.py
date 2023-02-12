@@ -422,6 +422,7 @@ def _p_generate(
     guidance_scale,
     latents,
     neg_prompt_ids,
+    clip_skip
 ):
     return pipe._generate(
         prompt_ids,
@@ -433,6 +434,7 @@ def _p_generate(
         guidance_scale,
         latents,
         neg_prompt_ids,
+        clip_skip
     )
 
 
