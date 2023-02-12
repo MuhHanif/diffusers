@@ -296,6 +296,8 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         neg_prompt_ids: jnp.array = None,
         return_dict: bool = True,
         jit: bool = False,
+        clip_skip: int = 0
+
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -326,6 +328,8 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
             return_dict (`bool`, *optional*, defaults to `True`):
                 Whether or not to return a [`~pipelines.stable_diffusion.FlaxStableDiffusionPipelineOutput`] instead of
                 a plain tuple.
+            clip_skip (`int`, *optional*, defaults to 0):
+                Cut CLIP text encoder hidden layer from the top.
 
         Returns:
             [`~pipelines.stable_diffusion.FlaxStableDiffusionPipelineOutput`] or `tuple`:
@@ -358,6 +362,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
+                clip_skip
             )
         else:
             images = self._generate(
@@ -370,6 +375,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
+                clip_skip
             )
 
         if self.safety_checker is not None:
