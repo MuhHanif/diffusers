@@ -132,7 +132,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         )
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
 
-    def prepare_inputs(self, prompt: Union[str, List[str]], overwrite_length:int=0):
+    def prepare_inputs(self, prompt: Union[str, List[str]], overwrite_length:int=0, enable_mask=False):
         if not isinstance(prompt, (str, list)):
             raise ValueError(f"`prompt` has to be of type `str` or `list` but is {type(prompt)}")
 
@@ -143,7 +143,10 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
             truncation=True,
             return_tensors="np",
         )
-        return text_input.input_ids
+        if enable_mask:
+            return text_input
+        else:
+            return text_input.input_ids
 
     def _get_has_nsfw_concepts(self, features, params):
         has_nsfw_concepts = self.safety_checker(features, params)
@@ -190,13 +193,17 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         guidance_scale: float,
         latents: Optional[jnp.array] = None,
         neg_prompt_ids: Optional[jnp.array] = None,
+        mask: Optional[jnp.array] = None,
 
     ):
         if height % 8 != 0 or width % 8 != 0:
             raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
 
         # get prompt text embeddings
-        prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
+        if mask is None:
+            prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
+        else:
+            prompt_embeds = self.text_encoder(prompt_ids, attention_mask=mask, params=params["text_encoder"])[0]
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
         # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
@@ -287,7 +294,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         neg_prompt_ids: jnp.array = None,
         return_dict: bool = True,
         jit: bool = False,
-
+        mask: jnp.array = None,
     ):
         r"""
         Function invoked when calling the pipeline for generation.
@@ -320,6 +327,8 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 a plain tuple.
             clip_skip (`int`, *optional*):
                 Cut CLIP text encoder hidden layer from the top.
+            prompt (`jnp.array`, *optional*):
+                tokenizer mask.
 
         Returns:
             [`~pipelines.stable_diffusion.FlaxStableDiffusionPipelineOutput`] or `tuple`:
@@ -356,7 +365,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
-                
+                mask,
             )
         else:
             images = self._generate(
@@ -369,7 +378,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
-                
+                mask,                
             )
 
         if self.safety_checker is not None:
@@ -402,7 +411,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, None, None, None, 0, 0, 0),
+    in_axes=(None, 0, 0, 0, None, None, None, 0, 0, 0, 0),
     static_broadcasted_argnums=(0, 4, 5, 6),
 )
 def _p_generate(
@@ -416,6 +425,7 @@ def _p_generate(
     guidance_scale,
     latents,
     neg_prompt_ids,
+    mask,
 ):
     return pipe._generate(
         prompt_ids,
@@ -427,6 +437,7 @@ def _p_generate(
         guidance_scale,
         latents,
         neg_prompt_ids,
+        mask,
     )
 
 
