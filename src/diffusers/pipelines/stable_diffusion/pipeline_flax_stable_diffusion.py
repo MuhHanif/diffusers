@@ -187,7 +187,6 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         num_inference_steps: int,
         height: int,
         width: int,
-        clip_skip: int,
         guidance_scale: float,
         latents: Optional[jnp.array] = None,
         neg_prompt_ids: Optional[jnp.array] = None,
@@ -197,16 +196,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
             raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
 
         # get prompt text embeddings
-
-        clip_text_encoder = self.text_encoder
-
-        #clip_skip = jnp.array(clip_skip, int)
-        #clip skip
-        layer_count = clip_text_encoder.config.num_hidden_layers - clip_skip
-        clip_text_encoder.config.num_hidden_layers = layer_count 
-
-
-        prompt_embeds = clip_text_encoder(prompt_ids, params=params["text_encoder"])[0]
+        prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
         # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
@@ -220,7 +210,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
             ).input_ids
         else:
             uncond_input = neg_prompt_ids
-        negative_prompt_embeds = clip_text_encoder(uncond_input, params=params["text_encoder"])[0]
+        negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
         context = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
 
         latents_shape = (
@@ -342,6 +332,10 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         height = height or self.unet.config.sample_size * self.vae_scale_factor
         width = width or self.unet.config.sample_size * self.vae_scale_factor
 
+        #clip skip
+        layer_count = self.text_encoder.config.num_hidden_layers - clip_skip
+        self.text_encoder.config.num_hidden_layers = layer_count 
+
         if isinstance(guidance_scale, float):
             # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
             # shape information, as they may be sharded (when `jit` is `True`), or not.
@@ -359,7 +353,6 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 num_inference_steps,
                 height,
                 width,
-                clip_skip,
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
@@ -373,7 +366,6 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 num_inference_steps,
                 height,
                 width,
-                clip_skip,
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
@@ -410,7 +402,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, None, None, None, None, 0, 0, 0),
+    in_axes=(None, 0, 0, 0, None, None, None, 0, 0, 0),
     static_broadcasted_argnums=(0, 4, 5, 6),
 )
 def _p_generate(
@@ -421,7 +413,6 @@ def _p_generate(
     num_inference_steps,
     height,
     width,
-    clip_skip,
     guidance_scale,
     latents,
     neg_prompt_ids,
@@ -433,7 +424,6 @@ def _p_generate(
         num_inference_steps,
         height,
         width,
-        clip_skip,
         guidance_scale,
         latents,
         neg_prompt_ids,
