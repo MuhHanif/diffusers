@@ -408,7 +408,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, None, None, None, 0, 0, 0),
+    in_axes=(None, 0, 0, 0, None, None, None, 0, 0, 0, 0),
     static_broadcasted_argnums=(0, 4, 5, 6),
 )
 def _p_generate(
