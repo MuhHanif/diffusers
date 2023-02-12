@@ -194,17 +194,8 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         if height % 8 != 0 or width % 8 != 0:
             raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
 
-        # get model positional embeddings length
-        model_max_token_length = self.tokenizer.model_max_length
-
-        if prompt_ids > model_max_token_length:
-
-            prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
-            
-            pass
-        else:
-            # get prompt text embeddings
-            prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
+        # get prompt text embeddings
+        prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
         # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
