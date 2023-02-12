@@ -187,10 +187,11 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         num_inference_steps: int,
         height: int,
         width: int,
+        clip_skip: int,
         guidance_scale: float,
         latents: Optional[jnp.array] = None,
         neg_prompt_ids: Optional[jnp.array] = None,
-        clip_skip: int = jnp.array(0, int),
+
     ):
         if height % 8 != 0 or width % 8 != 0:
             raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
@@ -199,12 +200,11 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
 
         clip_text_encoder = self.text_encoder
 
-        clip_skip = jnp.array(clip_skip, int)
+        #clip_skip = jnp.array(clip_skip, int)
         #clip skip
-        if clip_skip > jnp.array(0, int):
-            layer_count = clip_text_encoder.config.num_hidden_layers - clip_skip
-            params["text_encoder"]["text_model"]["encoder"]["layers"].pop(str(layer_count))
-            clip_text_encoder.config.num_hidden_layers = layer_count 
+        layer_count = clip_text_encoder.config.num_hidden_layers - clip_skip
+        params["text_encoder"]["text_model"]["encoder"]["layers"].pop(str(layer_count))
+        clip_text_encoder.config.num_hidden_layers = layer_count 
 
 
         prompt_embeds = clip_text_encoder(prompt_ids, params=params["text_encoder"])[0]
@@ -292,12 +292,12 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         num_inference_steps: int = 50,
         height: Optional[int] = None,
         width: Optional[int] = None,
+        clip_skip: int = None,
         guidance_scale: Union[float, jnp.array] = 7.5,
         latents: jnp.array = None,
         neg_prompt_ids: jnp.array = None,
         return_dict: bool = True,
         jit: bool = False,
-        clip_skip: int = 0,
 
     ):
         r"""
@@ -329,7 +329,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
             return_dict (`bool`, *optional*, defaults to `True`):
                 Whether or not to return a [`~pipelines.stable_diffusion.FlaxStableDiffusionPipelineOutput`] instead of
                 a plain tuple.
-            clip_skip (`int`, *optional*, defaults to 0):
+            clip_skip (`int`, *optional*):
                 Cut CLIP text encoder hidden layer from the top.
 
         Returns:
@@ -360,10 +360,11 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 num_inference_steps,
                 height,
                 width,
+                clip_skip,
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
-                clip_skip,
+                
             )
         else:
             images = self._generate(
@@ -373,10 +374,11 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 num_inference_steps,
                 height,
                 width,
+                clip_skip,
                 guidance_scale,
                 latents,
                 neg_prompt_ids,
-                clip_skip,
+                
             )
 
         if self.safety_checker is not None:
@@ -409,7 +411,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
 # Non-static args are (sharded) input tensors mapped over their first dimension (hence, `0`).
 @partial(
     jax.pmap,
-    in_axes=(None, 0, 0, 0, None, None, None, 0, 0, 0, None),
+    in_axes=(None, 0, 0, 0, None, None, None, None, 0, 0, 0),
     static_broadcasted_argnums=(0, 4, 5, 6),
 )
 def _p_generate(
@@ -420,10 +422,10 @@ def _p_generate(
     num_inference_steps,
     height,
     width,
+    clip_skip,
     guidance_scale,
     latents,
     neg_prompt_ids,
-    clip_skip,
 ):
     return pipe._generate(
         prompt_ids,
@@ -432,10 +434,10 @@ def _p_generate(
         num_inference_steps,
         height,
         width,
+        clip_skip,
         guidance_scale,
         latents,
         neg_prompt_ids,
-        clip_skip,
     )
 
 
