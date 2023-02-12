@@ -119,7 +119,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
             deprecate("sample_size<64", "1.0.0", deprecation_message, standard_warn=False)
             new_config = dict(unet.config)
             new_config["sample_size"] = 64
-            unet._internal_dict = FrozenDict(new_config)
+            unet._internal_dict = FrozenDict(new_config)      
 
         self.register_modules(
             vae=vae,
@@ -132,14 +132,14 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         )
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
 
-    def prepare_inputs(self, prompt: Union[str, List[str]]):
+    def prepare_inputs(self, prompt: Union[str, List[str]], overwrite_length:int=0):
         if not isinstance(prompt, (str, list)):
             raise ValueError(f"`prompt` has to be of type `str` or `list` but is {type(prompt)}")
 
         text_input = self.tokenizer(
             prompt,
             padding="max_length",
-            max_length=self.tokenizer.model_max_length,
+            max_length=overwrite_length if overwrite_length > 0 else self.tokenizer.model_max_length,
             truncation=True,
             return_tensors="np",
         )
@@ -190,12 +190,23 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         guidance_scale: float,
         latents: Optional[jnp.array] = None,
         neg_prompt_ids: Optional[jnp.array] = None,
+        clip_skip: int = 0
     ):
         if height % 8 != 0 or width % 8 != 0:
             raise ValueError(f"`height` and `width` have to be divisible by 8 but are {height} and {width}.")
 
         # get prompt text embeddings
-        prompt_embeds = self.text_encoder(prompt_ids, params=params["text_encoder"])[0]
+
+        clip_text_encoder = self.text_encoder
+
+        #clip skip
+        if clip_skip != 0:
+            layer_count = clip_text_encoder.config.num_hidden_layers - clip_skip
+            params["text_encoder"]["text_model"]["encoder"]["layers"].pop(str(layer_count))
+            clip_text_encoder.config.num_hidden_layers = layer_count 
+
+
+        prompt_embeds = clip_text_encoder(prompt_ids, params=params["text_encoder"])[0]
 
         # TODO: currently it is assumed `do_classifier_free_guidance = guidance_scale > 1.0`
         # implement this conditional `do_classifier_free_guidance = guidance_scale > 1.0`
@@ -209,7 +220,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
             ).input_ids
         else:
             uncond_input = neg_prompt_ids
-        negative_prompt_embeds = self.text_encoder(uncond_input, params=params["text_encoder"])[0]
+        negative_prompt_embeds = clip_text_encoder(uncond_input, params=params["text_encoder"])[0]
         context = jnp.concatenate([negative_prompt_embeds, prompt_embeds])
 
         latents_shape = (
