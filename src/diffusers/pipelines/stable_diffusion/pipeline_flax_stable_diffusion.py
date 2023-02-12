@@ -199,7 +199,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
 
         clip_text_encoder = self.text_encoder
 
-        clip_skip = int(clip_skip)
+        clip_skip = jnp.array(clip_skip, int)
         #clip skip
         if clip_skip > 0:
             layer_count = clip_text_encoder.config.num_hidden_layers - clip_skip
