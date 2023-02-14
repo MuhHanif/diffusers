@@ -348,7 +348,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         layer_count = self.text_encoder.config.num_hidden_layers - clip_skip
         self.text_encoder.config.num_hidden_layers = layer_count 
 
-        text_encoder.config.max_position_embeddings = interpolate_position_embeddings
+        self.text_encoder.config.max_position_embeddings = interpolate_position_embeddings
 
         if isinstance(guidance_scale, float):
             # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
