@@ -289,7 +289,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         height: Optional[int] = None,
         width: Optional[int] = None,
         clip_skip: int = None,
-        interpolate_position_embeddings: int = 1,
+        interpolate_position_embeddings: int = 77,
         guidance_scale: Union[float, jnp.array] = 7.5,
         latents: jnp.array = None,
         neg_prompt_ids: jnp.array = None,
@@ -328,9 +328,8 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 a plain tuple.
             clip_skip (`int`, *optional*):
                 Cut CLIP text encoder hidden layer from the top.
-            interpolate_position_embeddings (`int`, *optional*, defaults to 1):
-                (HACK) Stretch the positional embeddings to accept bigger token count with token count equal
-                to this formula (max_position_embeddings + 1/interpolate_position_embeddings + 1)
+            interpolate_position_embeddings (`int`, *optional*, defaults to 77):
+                (HACK) Stretch the positional embeddings to accept bigger token count with token count equal to this value.
             prompt (`jnp.array`, *optional*):
                 tokenizer mask.
 
@@ -349,8 +348,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         layer_count = self.text_encoder.config.num_hidden_layers - clip_skip
         self.text_encoder.config.num_hidden_layers = layer_count 
 
-        if interpolate_position_embeddings > 1:
-            text_encoder.config.max_position_embeddings = text_encoder.params["text_model"]["embeddings"]["position_embedding"]["embedding"].shape[0]
+        text_encoder.config.max_position_embeddings = interpolate_position_embeddings
 
         if isinstance(guidance_scale, float):
             # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
