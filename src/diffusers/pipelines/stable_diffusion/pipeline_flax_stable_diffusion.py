@@ -289,6 +289,7 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         height: Optional[int] = None,
         width: Optional[int] = None,
         clip_skip: int = None,
+        interpolate_position_embeddings: int = 1,
         guidance_scale: Union[float, jnp.array] = 7.5,
         latents: jnp.array = None,
         neg_prompt_ids: jnp.array = None,
@@ -327,6 +328,9 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
                 a plain tuple.
             clip_skip (`int`, *optional*):
                 Cut CLIP text encoder hidden layer from the top.
+            interpolate_position_embeddings (`int`, *optional*, defaults to 1):
+                (HACK) Stretch the positional embeddings to accept bigger token count with token count equal
+                to this formula (max_position_embeddings + 1/interpolate_position_embeddings + 1)
             prompt (`jnp.array`, *optional*):
                 tokenizer mask.
 
@@ -344,6 +348,40 @@ class FlaxStableDiffusionPipeline(FlaxDiffusionPipeline):
         #clip skip
         layer_count = self.text_encoder.config.num_hidden_layers - clip_skip
         self.text_encoder.config.num_hidden_layers = layer_count 
+
+        if interpolate_position_embeddings > 1:
+            #reference positional embedding
+            positional_embedding = self.text_encoder.params["text_model"]["embeddings"]["position_embedding"]["embedding"]
+
+            #create interpolation map without first and last value
+            positional_embedding_linear = np.arange(positional_embedding[1:-1].shape[0])
+            new_positional_embedding_length = np.arange(
+                0, 
+                positional_embedding[1:-1].shape[0] + 1/interpolate_position_embeddings - 1, 
+                1/interpolate_position_embeddings
+            )
+
+            #interpolate across token length axis
+            interpolated_positional_embeddings = interp1d(
+                positional_embedding_linear, 
+                positional_embedding[1:-1], 
+                axis=0
+            )
+            interpolated_value = interpolated_positional_embeddings(new_positional_embedding_length)
+
+            #concatenate first and last position back
+            positional_embedding_first = np.expand_dims(positional_embedding[0], axis=0)
+            positional_embedding_last = np.expand_dims(positional_embedding[-1], axis=0)
+            capped_interpolated_value = np.concatenate([
+                positional_embedding_first, 
+                interpolated_value, 
+                positional_embedding_last
+                ])
+            
+            #assign new value back to text encoder params
+            text_encoder.params["text_model"]["embeddings"]["position_embedding"]["embedding"] = capped_interpolated_value
+
+            text_encoder.config.max_position_embeddings = capped_interpolated_value.shape[0]
 
         if isinstance(guidance_scale, float):
             # Convert to a tensor so each device gets a copy. Follow the prompt_ids for
