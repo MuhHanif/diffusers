@@ -105,7 +105,7 @@ class FlaxCrossAttention(nn.Module):
                 key_states, 
                 value_states,
                 query_chunk_size=query_chunk_size,
-                key_chunk_size=4096*4
+                key_chunk_size=flatten_latent_dim
             )
             
             hidden_states=hidden_states.transpose(1,0,2)
